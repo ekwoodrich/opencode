@@ -141,20 +141,27 @@ export namespace File {
         const ignoreNested = new Set(["node_modules", "dist", "build", "target", "vendor"])
         const shouldIgnore = (name: string) => name.startsWith(".") || ignore.has(name)
         const shouldIgnoreNested = (name: string) => name.startsWith(".") || ignoreNested.has(name)
+        const isDirectory = async (entry: fs.Dirent, fullPath: string) => {
+          if (entry.isDirectory()) return true
+          if (!entry.isSymbolicLink()) return false
+          const stat = await fs.promises.stat(fullPath).catch(() => undefined)
+          return !!stat?.isDirectory()
+        }
 
         const top = await fs.promises
           .readdir(Instance.directory, { withFileTypes: true })
           .catch(() => [] as fs.Dirent[])
 
         for (const entry of top) {
-          if (!entry.isDirectory()) continue
+          const fullPath = path.join(Instance.directory, entry.name)
+          if (!(await isDirectory(entry, fullPath))) continue
           if (shouldIgnore(entry.name)) continue
           dirs.add(entry.name + "/")
 
-          const base = path.join(Instance.directory, entry.name)
-          const children = await fs.promises.readdir(base, { withFileTypes: true }).catch(() => [] as fs.Dirent[])
+          const children = await fs.promises.readdir(fullPath, { withFileTypes: true }).catch(() => [] as fs.Dirent[])
           for (const child of children) {
-            if (!child.isDirectory()) continue
+            const childPath = path.join(fullPath, child.name)
+            if (!(await isDirectory(child, childPath))) continue
             if (shouldIgnoreNested(child.name)) continue
             dirs.add(entry.name + "/" + child.name + "/")
           }
