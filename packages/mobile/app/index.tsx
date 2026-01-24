@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router"
 import { useMemo, useState } from "react"
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
-import { SafeAreaView } from "react-native-safe-area-context"
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View, SafeAreaView } from "react-native"
 import { useServer } from "@/src/context/server"
 import { serverDisplayName } from "@/src/lib/server"
 
@@ -33,7 +32,7 @@ export default function ServerScreen() {
   const handleSelect = (url: string) => {
     if (server.status[url]?.healthy === false) return
     server.setActive(url)
-    router.replace("/(app)")
+    router.push("/(app)")
   }
 
   const handleAdd = async () => {
@@ -51,7 +50,7 @@ export default function ServerScreen() {
     }
     setInput("")
     setError("")
-    router.replace("/(app)")
+    router.push("/(app)")
   }
 
   const handleRefresh = () => {

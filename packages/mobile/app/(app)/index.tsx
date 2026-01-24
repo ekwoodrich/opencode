@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router"
-import { Pressable, StyleSheet, Text, View } from "react-native"
-import { SafeAreaView } from "react-native-safe-area-context"
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native"
 import { useServer } from "@/src/context/server"
 import { serverDisplayName } from "@/src/lib/server"
 
@@ -22,13 +21,17 @@ export default function HomeScreen() {
     )
   }
 
+  const handleSwitchServer = () => {
+    router.back()
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
         <Text style={styles.title}>Connected</Text>
         <Text style={styles.subtitle}>{serverDisplayName(active)}</Text>
         <Text style={styles.body}>Project list and sessions will appear here in the next phase.</Text>
-        <Pressable style={styles.button} onPress={() => router.replace("/")}>
+        <Pressable style={styles.button} onPress={handleSwitchServer}>
           <Text style={styles.buttonText}>Switch server</Text>
         </Pressable>
       </View>
