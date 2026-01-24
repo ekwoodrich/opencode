@@ -1,0 +1,13 @@
+[Unit]
+Description=OpenCode Expo Dev Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/projects/opencode
+ExecStart=/home/projects/opencode/dev/opencode-expo-dev.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
