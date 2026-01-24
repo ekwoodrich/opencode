@@ -65,26 +65,43 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       flush()
     }
 
-    void (async () => {
-      const events = await eventSdk.global.event()
-      let yielded = Date.now()
-      for await (const event of events.stream) {
-        const directory = event.directory ?? "global"
-        const payload = event.payload
-        const k = key(directory, payload)
-        if (k) {
-          const i = coalesced.get(k)
-          if (i !== undefined) {
-            queue[i] = undefined
-          }
-          coalesced.set(k, queue.length)
-        }
-        queue.push({ directory, payload })
-        schedule()
+    const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-        if (Date.now() - yielded < 8) continue
-        yielded = Date.now()
-        await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    void (async () => {
+      while (!abort.signal.aborted) {
+        const events = await eventSdk.global.event({ signal: abort.signal }).catch(() => undefined)
+        if (!events) {
+          await sleep(1000)
+          continue
+        }
+
+        let yielded = Date.now()
+        try {
+          for await (const event of events.stream) {
+            const directory = event.directory ?? "global"
+            const payload = event.payload
+            const k = key(directory, payload)
+            if (k) {
+              const i = coalesced.get(k)
+              if (i !== undefined) {
+                queue[i] = undefined
+              }
+              coalesced.set(k, queue.length)
+            }
+            queue.push({ directory, payload })
+            schedule()
+
+            if (Date.now() - yielded < 8) continue
+            yielded = Date.now()
+            await sleep(0)
+          }
+        } catch {
+          if (abort.signal.aborted) break
+        }
+
+        if (!abort.signal.aborted) {
+          await sleep(500)
+        }
       }
     })()
       .finally(stop)
