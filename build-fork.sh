@@ -3,6 +3,53 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+system_oc_services=()
+user_oc_services=()
+
+if command -v systemctl >/dev/null 2>&1; then
+  while IFS= read -r unit; do
+    [ -n "$unit" ] && system_oc_services+=("$unit")
+  done < <(systemctl list-units --type=service --state=active "oc-service-*" --no-legend --no-pager 2>/dev/null | awk '{print $1}' || true)
+
+  while IFS= read -r unit; do
+    [ -n "$unit" ] && user_oc_services+=("$unit")
+  done < <(systemctl --user list-units --type=service --state=active "oc-service-*" --no-legend --no-pager 2>/dev/null | awk '{print $1}' || true)
+fi
+
+restart_oc_services() {
+  if [ "${#system_oc_services[@]}" -gt 0 ]; then
+    echo "Restarting oc services: ${system_oc_services[*]}"
+    for unit in "${system_oc_services[@]}"; do
+      systemctl start "$unit"
+    done
+  fi
+
+  if [ "${#user_oc_services[@]}" -gt 0 ]; then
+    echo "Restarting oc user services: ${user_oc_services[*]}"
+    for unit in "${user_oc_services[@]}"; do
+      systemctl --user start "$unit"
+    done
+  fi
+}
+
+if [ "${#system_oc_services[@]}" -gt 0 ] || [ "${#user_oc_services[@]}" -gt 0 ]; then
+  if [ "${#system_oc_services[@]}" -gt 0 ]; then
+    echo "Stopping oc services: ${system_oc_services[*]}"
+    for unit in "${system_oc_services[@]}"; do
+      systemctl stop "$unit"
+    done
+  fi
+
+  if [ "${#user_oc_services[@]}" -gt 0 ]; then
+    echo "Stopping oc user services: ${user_oc_services[*]}"
+    for unit in "${user_oc_services[@]}"; do
+      systemctl --user stop "$unit"
+    done
+  fi
+
+  trap restart_oc_services EXIT
+fi
+
 required_bun_version="1.3.5"
 
 if ! command -v bun >/dev/null 2>&1; then

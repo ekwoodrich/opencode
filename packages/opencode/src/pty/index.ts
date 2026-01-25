@@ -97,12 +97,18 @@ export namespace Pty {
     const id = Identifier.create("pty", false)
     const command = input.command || Shell.preferred()
     const args = input.args || []
-    if (command.endsWith("sh")) {
-      args.push("-l")
-    }
+    // Removed -l flag to avoid loading login shell configs
+    // if (command.endsWith("sh")) {
+    //   args.push("-l")
+    // }
 
     const cwd = input.cwd || Instance.directory
-    const env = { ...process.env, ...input.env, TERM: "xterm-256color" } as Record<string, string>
+    const env = {
+      ...process.env,
+      ...input.env,
+      TERM: "xterm-256color",
+      BASH_ENV: process.env.HOME ? `${process.env.HOME}/.bashrc_opencode` : undefined,
+    } as Record<string, string>
     log.info("creating session", { id, cmd: command, args, cwd })
 
     const spawn = await pty()

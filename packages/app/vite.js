@@ -18,6 +18,7 @@ export default [
         worker: {
           format: "es",
         },
+        assetsInclude: ["**/*.wasm"],
       }
     },
   },
