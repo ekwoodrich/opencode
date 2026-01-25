@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   FlatList,
@@ -39,6 +39,8 @@ export default function SessionScreen() {
   const [message, setMessage] = useState("")
   const [sending, setSending] = useState(false)
 
+  const listRef = useRef<FlatList>(null)
+
   const client = useMemo(() => {
     if (!server.active) return
     if (!dir) return
@@ -77,6 +79,15 @@ export default function SessionScreen() {
       live.value = false
     }
   }, [client, dir, id, tick])
+
+  // Auto-scroll to bottom when items change
+  useEffect(() => {
+    if (items.length > 0) {
+      setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: true })
+      }, 100)
+    }
+  }, [items.length])
 
   if (!server.active) {
     return (
@@ -162,18 +173,20 @@ export default function SessionScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <FlatList
+            ref={listRef}
             data={items}
             keyExtractor={(item) => item.info.id}
             contentContainerStyle={styles.list}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             ListEmptyComponent={empty ? <Text style={styles.empty}>No messages yet.</Text> : null}
+            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
             renderItem={(entry: { item: Entry }) => {
               const item = entry.item
               const role = item.info.role === "assistant" ? "Assistant" : "User"
               const part = item.parts.find((entry) => entry.type === "text")
               const text = part && "text" in part ? part.text : ""
               return (
-                <View style={styles.row}>
+                <View style={[styles.row, item.info.role === "assistant" ? styles.rowAssistant : styles.rowUser]}>
                   <View style={styles.rowHead}>
                     <Text style={styles.rowRole}>{role}</Text>
                     <Text style={styles.rowMeta}>{new Date(item.info.time.created).toLocaleString()}</Text>
@@ -251,10 +264,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#1a1a1f",
     gap: 6,
+    maxWidth: "90%",
+  },
+  rowUser: {
+    alignSelf: "flex-end",
+    backgroundColor: "#2a2a2f",
+    borderBottomRightRadius: 2,
+  },
+  rowAssistant: {
+    alignSelf: "flex-start",
+    backgroundColor: "#1a1a1f",
+    borderBottomLeftRadius: 2,
   },
   rowHead: {
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: 8,
   },
   rowRole: {
     fontSize: 12,
