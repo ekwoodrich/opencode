@@ -1,6 +1,17 @@
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useMemo, useState } from "react"
-import { ActivityIndicator, FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native"
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native"
 import { createOpencodeClient, type Message, type Part, type Session } from "@opencode-ai/sdk/v2/client"
 import { usePlatform } from "@/src/context/platform"
 import { useServer } from "@/src/context/server"
@@ -25,6 +36,9 @@ export default function SessionScreen() {
   const [error, setError] = useState("")
   const [tick, setTick] = useState(0)
 
+  const [message, setMessage] = useState("")
+  const [sending, setSending] = useState(false)
+
   const client = useMemo(() => {
     if (!server.active) return
     if (!dir) return
@@ -44,7 +58,7 @@ export default function SessionScreen() {
     setError("")
     Promise.all([
       client.session.get({ sessionID: id, directory: dir }),
-      client.session.messages({ sessionID: id, directory: dir, limit: 50 }),
+      client.session.messages({ sessionID: id, directory: dir, limit: 100 }),
     ])
       .then((result) => {
         if (!live.value) return
@@ -107,49 +121,93 @@ export default function SessionScreen() {
     setTick((value) => value + 1)
   }
 
+  const handleSend = async () => {
+    if (!client || !dir || !id || !message.trim() || sending) return
+    setSending(true)
+    setError("")
+    try {
+      await client.session.prompt({
+        sessionID: id,
+        directory: dir,
+        parts: [{ type: "text", text: message.trim() }],
+      })
+      setMessage("")
+      handleRefresh()
+    } catch (err) {
+      console.error(err)
+      setError("Could not send message.")
+    } finally {
+      setSending(false)
+    }
+  }
+
   const title = info?.title ?? "Session"
   const empty = !busy && !error && items.length === 0
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable style={styles.link} onPress={() => router.back()}>
-            <Text style={styles.linkText}>Back</Text>
-          </Pressable>
-          <Pressable style={styles.link} onPress={handleRefresh}>
-            <Text style={styles.linkText}>Refresh</Text>
-          </Pressable>
-        </View>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{dir}</Text>
-        {busy ? <ActivityIndicator style={styles.loader} /> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Pressable style={styles.link} onPress={() => router.back()}>
+              <Text style={styles.linkText}>Back</Text>
+            </Pressable>
+            <Pressable style={styles.link} onPress={handleRefresh}>
+              <Text style={styles.linkText}>Refresh</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{dir}</Text>
+          {busy ? <ActivityIndicator style={styles.loader} /> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.info.id}
-          contentContainerStyle={styles.list}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={empty ? <Text style={styles.empty}>No messages yet.</Text> : null}
-          renderItem={(entry: { item: Entry }) => {
-            const item = entry.item
-            const role = item.info.role === "assistant" ? "Assistant" : "User"
-            const part = item.parts.find((entry) => entry.type === "text")
-            const text = part && "text" in part ? part.text : ""
-            const line = text ? text.split("\n")[0] : "No text content."
-            return (
-              <View style={styles.row}>
-                <View style={styles.rowHead}>
-                  <Text style={styles.rowRole}>{role}</Text>
-                  <Text style={styles.rowMeta}>{new Date(item.info.time.created).toLocaleString()}</Text>
+          <FlatList
+            data={items}
+            keyExtractor={(item) => item.info.id}
+            contentContainerStyle={styles.list}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            ListEmptyComponent={empty ? <Text style={styles.empty}>No messages yet.</Text> : null}
+            renderItem={(entry: { item: Entry }) => {
+              const item = entry.item
+              const role = item.info.role === "assistant" ? "Assistant" : "User"
+              const part = item.parts.find((entry) => entry.type === "text")
+              const text = part && "text" in part ? part.text : ""
+              return (
+                <View style={styles.row}>
+                  <View style={styles.rowHead}>
+                    <Text style={styles.rowRole}>{role}</Text>
+                    <Text style={styles.rowMeta}>{new Date(item.info.time.created).toLocaleString()}</Text>
+                  </View>
+                  <Text style={styles.rowText}>{text}</Text>
                 </View>
-                <Text style={styles.rowText}>{line}</Text>
-              </View>
-            )
-          }}
-        />
-      </View>
+              )
+            }}
+          />
+
+          <View style={styles.footer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message..."
+              placeholderTextColor="#9c938b"
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              maxLength={2000}
+            />
+            <Pressable
+              style={[styles.sendButton, (!message.trim() || sending) && styles.sendButtonDisabled]}
+              onPress={handleSend}
+              disabled={!message.trim() || sending}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color="#f6f4f2" />
+              ) : (
+                <Text style={styles.sendButtonText}>Send</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
@@ -159,9 +217,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0f0f10",
   },
+  flex: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     padding: 24,
+    paddingBottom: 8,
     gap: 12,
   },
   header: {
@@ -219,6 +281,42 @@ const styles = StyleSheet.create({
   error: {
     color: "#ff7b7b",
     fontSize: 12,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#1a1a1f",
+  },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 120,
+    backgroundColor: "#1a1a1f",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#f6f4f2",
+    fontSize: 13,
+  },
+  sendButton: {
+    width: 60,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#4a7cff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sendButtonDisabled: {
+    backgroundColor: "#2a2a2f",
+    opacity: 0.6,
+  },
+  sendButtonText: {
+    color: "#f6f4f2",
+    fontSize: 13,
+    fontWeight: "600",
   },
   button: {
     marginTop: 8,

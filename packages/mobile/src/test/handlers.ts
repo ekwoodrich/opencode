@@ -23,4 +23,7 @@ export const handlers = [
   http.get(`${fixtures.base}/session/:sessionID/message`, () => {
     return HttpResponse.json(fixtures.messages)
   }),
+  http.post(`${fixtures.base}/session/:sessionID/prompt`, () => {
+    return HttpResponse.json({ success: true })
+  }),
 ]
