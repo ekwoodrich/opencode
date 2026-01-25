@@ -95,6 +95,39 @@ export default function ProjectScreen() {
     setTick((value) => value + 1)
   }
 
+  const handleCreateSession = async () => {
+    if (!client || !dir || busy) return
+    setBusy(true)
+    setError("")
+    try {
+      const result = await client.session.create({ directory: dir })
+      if (result.data?.id) {
+        router.push({
+          pathname: "/(app)/[dir]/session/[[id]]",
+          params: { dir, "[id]": result.data.id },
+        })
+      } else {
+        setError("Could not create session.")
+      }
+    } catch (err) {
+      console.error(err)
+      setError("Could not create session.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDeleteSession = async (sessionID: string) => {
+    if (!client || !dir) return
+    try {
+      await client.session.delete({ sessionID, directory: dir })
+      handleRefresh()
+    } catch (err) {
+      console.error(err)
+      setError("Could not delete session.")
+    }
+  }
+
   const handleBack = () => {
     router.back()
   }
@@ -124,24 +157,30 @@ export default function ProjectScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sessions</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Sessions</Text>
+            <Pressable style={styles.addButton} onPress={handleCreateSession} disabled={busy}>
+              <Text style={styles.addButtonText}>+ New</Text>
+            </Pressable>
+          </View>
           {sessions.map((item) => (
-            <Pressable
-              key={item.id}
-              style={styles.row}
-              onPress={() =>
-                router.push({
-                  pathname: "/(app)/[dir]/session/[[id]]",
-                  params: { dir, "[id]": item.id },
-                })
-              }
-            >
-              <View style={styles.rowInfo}>
+            <View key={item.id} style={styles.row}>
+              <Pressable
+                style={styles.rowInfo}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(app)/[dir]/session/[[id]]",
+                    params: { dir, "[id]": item.id },
+                  })
+                }
+              >
                 <Text style={styles.rowTitle}>{item.title}</Text>
                 <Text style={styles.rowMeta}>Updated {new Date(item.time.updated).toLocaleString()}</Text>
-              </View>
-              <Text style={styles.rowHint}>Open</Text>
-            </Pressable>
+              </Pressable>
+              <Pressable style={styles.deleteButton} onPress={() => handleDeleteSession(item.id)}>
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </Pressable>
+            </View>
           ))}
           {emptySessions ? <Text style={styles.empty}>No sessions yet.</Text> : null}
         </View>
@@ -196,6 +235,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#f6f4f2",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  addButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "#4a7cff",
+  },
+  addButtonText: {
+    color: "#f6f4f2",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  deleteButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "#2a2a2f",
+  },
+  deleteButtonText: {
+    color: "#ff7b7b",
+    fontSize: 12,
   },
   row: {
     paddingVertical: 12,
