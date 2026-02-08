@@ -20,7 +20,7 @@ Successfully migrated from Jest to Vitest to resolve React Native/Expo/Bun envir
 - `vitest` ^3.0.5
 - `@vitest/ui` ^3.0.5
 - `vite` ^6.0.11
-- `happy-dom` ^16.11.18 (test environment)
+- `happy-dom` ^20.0.11 (test environment)
 - `@react-native/babel-preset` ^0.83.1
 
 ### 2. Configuration Files
